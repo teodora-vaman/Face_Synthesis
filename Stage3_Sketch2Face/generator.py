@@ -47,7 +47,7 @@ class Generator(nn.Module):
     def __init__(self, img_size, attribute_number = 2):
         super(Generator, self).__init__()
         self.img_size = img_size
-        embeding_size = 50
+        embeding_size = 250
         self.embedd = nn.Embedding(attribute_number, embeding_size)
         
         ## ENCODER PART
