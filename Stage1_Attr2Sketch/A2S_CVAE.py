@@ -31,8 +31,8 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 ### Configuration ###
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 16
-EPOCHS = 50
-LEARING_RATE = 0.01  # Karapthy constant: 3e-4
+EPOCHS = 10
+LEARING_RATE = 0.001  # Karapthy constant: 3e-4
 NOISE_DIM = 200  # Dimensiunea vectorului zgomot latent
 
 wandb.init(
@@ -45,7 +45,7 @@ wandb.init(
     "dataset": "CelebA_medium",
     "epochs": EPOCHS,
     "batch_size":BATCH_SIZE,
-    "working_phase": "scheduler"
+    "working_phase": "test"
     }
 )
 
@@ -56,13 +56,13 @@ wandb.init(
 # DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA\img_align_celeba\img_align_celeba\\"
 # SKETCH_DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA\img_align_celeba\img_align_celeba_sketch\\"
 
-# EXCEL_PATH = "Database\celebA_small.xlsx"
-# DATASET_PATH = "Database\small_dataset\\"
-# SKETCH_DATASET_PATH = "Database\small_dataset_sketch\\"
+EXCEL_PATH = "Database\celebA_small.xlsx"
+DATASET_PATH = "Database\small_dataset\\"
+SKETCH_DATASET_PATH = "Database\small_dataset_sketch\\"
 
-EXCEL_PATH = "Database\celebA_medium.xlsx"
-DATASET_PATH = "Database\medium_dataset\\"
-SKETCH_DATASET_PATH = "Database\medium_dataset_sketch\\"
+# EXCEL_PATH = "Database\celebA_medium.xlsx"
+# DATASET_PATH = "Database\medium_dataset\\"
+# SKETCH_DATASET_PATH = "Database\medium_dataset_sketch\\"
 
 dataset = DatasetCelebA_Sketch(base_path=DATASET_PATH, excel_path=EXCEL_PATH, sketch_path=SKETCH_DATASET_PATH)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -73,14 +73,14 @@ retea_D = Discriminator(64)
 retea_G.cuda()
 retea_D.cuda()
 
-# retea_D.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\checkpoints\\retea_D_20epoci_medium.pt'))
-# retea_G.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\checkpoints\\retea_G_20epoci_medium.pt'))
+retea_D.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\\retea_D.pt'))
+retea_G.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\\retea_G.pt'))
 
 image, sketch, label = dataset[0]
-image2, sketch2, label2 = dataset[31]
+image2, sketch2, label2 = dataset[2]
 
 esantioane_proba = torch.stack([sketch, sketch2], dim=0)
-etichete_proba = torch.LongTensor([0,1])
+etichete_proba = torch.LongTensor([0, 1])
 
 loss_BCE = nn.BCELoss()
 loss_L1 = nn.L1Loss()
@@ -89,9 +89,6 @@ loss_D  = nn.BCELoss()
 
 optimizator_G = optim.Adam(retea_G.parameters(), lr=LEARING_RATE, betas=(0.5, 0.999))
 optimizator_D = optim.Adam(retea_D.parameters(), lr=LEARING_RATE, betas=(0.5, 0.999))
-
-scheduler_G = torch.optim.lr_scheduler.StepLR(optimizer = optimizator_G, step_size = 10, gamma=0.1)
-scheduler_D = torch.optim.lr_scheduler.StepLR(optimizer = optimizator_D, step_size = 10, gamma=0.1)
 
 img_list = []
 
@@ -145,8 +142,8 @@ for epoca in range(EPOCHS):
         wandb.log({"loss_G": loss_G, "loss_D": loss_D3, "D(x)":D_x, "D(G(z))-before_update":D_G_z1, "D(G(z))":D_G_z2})
 
     
-    torch.save(retea_D.state_dict(), 'retea_D_2.pt')
-    torch.save(retea_G.state_dict(), 'retea_G_2.pt')
+    torch.save(retea_D.state_dict(), 'Stage3_Sketch2Face\\retea_D.pt')
+    torch.save(retea_G.state_dict(), 'Stage3_Sketch2Face\\retea_G.pt')
 
     with torch.no_grad():
         esantioane_proba = esantioane_proba.to(torch.device(DEVICE))
@@ -156,9 +153,6 @@ for epoca in range(EPOCHS):
     img_list.append(vutils.make_grid(imagini_generate, padding=2, normalize=True))
     
     wandb.log({"generated images": wandb.Image(img_list[-1],(1,2,0))})
-
-    scheduler_G.step()
-    scheduler_D.step()
 
     print('Epoca {} a fost incheiata'.format(epoca+1))
 
