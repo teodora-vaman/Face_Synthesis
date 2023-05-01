@@ -37,7 +37,9 @@ class Discriminator(nn.Module):
         # self.lrelu5 = nn.LeakyReLU(0.2, inplace=True)
 
         # nr_imag x 256 x 4 x 4
-        self.out = nn.Linear(in_features=256 * 4 * 4, out_features=2)
+        self.out = nn.Linear(in_features=256 * 4 * 4, out_features=1)
+        self.sigmoid = nn.Sigmoid()
+
     
 
     def forward(self, input, labels):
@@ -68,7 +70,18 @@ class Discriminator(nn.Module):
         x = torch.flatten(x, 1)
         x = self.out(x)
 
-        return x
+        return self.sigmoid(x)
 
 
+if __name__ == "__main__":
+    image_size = [1,64,64] # input img: 64 x 64 for CelebA
+    x = torch.randn(4, 3, 64, 64)
+    y = torch.LongTensor([0, 0, 1, 1])  
+
+    retea_D = Discriminator(64)
+    result = retea_D(x, y)
+    D_x = result.mean().item()
+    ic(result.shape)  # should be [4, 1]
+    ic(result)
+    ic(D_x)
 

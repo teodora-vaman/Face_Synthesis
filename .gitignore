@@ -4,3 +4,6 @@ wandb-debug.log
 __pycache__
 Stage3_Sketch2Face\wandb
 Database/
+checkpoints/
+retea_D.pt
+retea_G.pt

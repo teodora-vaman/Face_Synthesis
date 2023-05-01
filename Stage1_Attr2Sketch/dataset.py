@@ -20,7 +20,6 @@ class DatasetCelebA(Dataset):
         self.base_path = base_path
         self.data = df["image_id"]
         self.labels = df["Male"]
-        self.hair = df['BlackHair']
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.transf = transforms.Compose([
