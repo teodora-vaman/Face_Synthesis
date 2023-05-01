@@ -37,7 +37,7 @@ NOISE_DIM = 200  # Dimensiunea vectorului zgomot latent
 
 wandb.init(
     # mode="disabled",
-    project="Stage3_GAN",
+    project="Stage1_VAE",
 
     config={
     "learning_rate": LEARING_RATE,
