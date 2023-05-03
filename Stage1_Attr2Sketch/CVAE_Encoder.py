@@ -81,26 +81,24 @@ class Encoder1(nn.Module):
         return reparametrized
 
     def forward(self, noise, attr_text, sketch):
-        encode_text = self.embedd_text(attr_text)
-
-        encode_image = self.encoder_qPhi(sketch)
+        encode_text = self.embedd_text(attr_text) # batch x 256
+        encode_image = self.encoder_qPhi(sketch) # batch x 1024 x 1 x 1
         encode_image = encode_image.view(-1, 1024)
-        encode_text = encode_text.view(-1,256)
+        # encode_text = encode_text.view(-1,256)
 
-        attr_img_merged = torch.cat((encode_image, encode_text ), 1)
+        attr_img_merged = torch.cat((encode_image, encode_text ), 1) # batch x 1024 + 256
+        attr_img_merged = self.fc_append_attr(attr_img_merged) # batch x 1024
 
-        attr_img_merged = self.fc_append_attr(attr_img_merged)
-        sketch_mu , sketch_logvar = self.encode_latent(attr_img_merged)
-        sketch_encoded = self.reparametrize(sketch_mu, sketch_logvar)
-        ic(sketch_mu.shape, sketch_logvar.shape)
+        sketch_mu , sketch_logvar = self.encode_latent(attr_img_merged) # batch x 1024, batch x 1024
+        sketch_embedded = self.reparametrize(sketch_mu, sketch_logvar) #  batch x 1024
 
-        encode_noise = self.encoder_qBeta(noise)
+        encode_noise = self.encoder_qBeta(noise) # batch x 1024
         attr_noise_merged = torch.cat((encode_noise, encode_text ), 1)
         attr_noise_merged = self.fc_append_attr(attr_noise_merged)
         noise_mu , noise_logvar = self.encode_latent(attr_noise_merged)
-        attr_noise_encoded = self.reparametrize(noise_mu, noise_logvar)
+        noise_embedded = self.reparametrize(noise_mu, noise_logvar)
 
-        return [attr_noise_encoded, noise_mu, noise_logvar], [sketch_encoded, sketch_mu, sketch_logvar], encode_text
+        return [noise_embedded, noise_mu, noise_logvar], [sketch_embedded, sketch_mu, sketch_logvar], encode_text
 
 
 if __name__ == "__main__":
@@ -118,9 +116,9 @@ if __name__ == "__main__":
     test_y = torch.FloatTensor([[0], [0], [1], [1]])
 
     E1 = Encoder1()
-    output_noise_gauss, output_sketch_gauss, encode_text = E1(noise=noise, attr_text = test_y, sketch = x)
-    ic(output_sketch_gauss[0].shape) # should be 4 x 1024
-    ic(output_noise_gauss[0].shape) # should be 4 x 1024
+    output_noise, output_sketch, encode_text = E1(noise=noise, attr_text = test_y, sketch = x)
+    ic(output_sketch[0].shape) # should be 4 x 1024
+    ic(output_noise[0].shape) # should be 4 x 1024
     ic(encode_text.shape) # should be 4 x 256
 
 

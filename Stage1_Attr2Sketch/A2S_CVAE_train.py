@@ -15,9 +15,8 @@ from tqdm import tqdm
 import wandb
 from PIL import Image
 
+from CVAE_models import Encoder1
 from dataset import DatasetCelebA, DatasetCelebA_Sketch
-from discriminator import Discriminator
-from generator import Generator
 import pandas as pd
 import os
 
@@ -25,30 +24,28 @@ seed = 999
 random.seed(seed)
 torch.manual_seed(seed)
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 ### Configuration ###
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 16
 EPOCHS = 10
-LEARING_RATE = 0.001  # Karapthy constant: 3e-4
-NOISE_DIM = 200  # Dimensiunea vectorului zgomot latent
+LEARING_RATE = 0.01  # Karapthy constant: 3e-4
+NOISE_DIM = 256  # Dimensiunea vectorului zgomot latent
 
 wandb.init(
-    # mode="disabled",
+    mode="disabled",
     project="Stage1_VAE",
 
     config={
     "learning_rate": LEARING_RATE,
-    "architecture": "conditional_GAN",
-    "dataset": "CelebA_medium",
+    "architecture": "CVAE",
+    "dataset": "CelebA_small",
     "epochs": EPOCHS,
     "batch_size":BATCH_SIZE,
     "working_phase": "test"
     }
 )
-
 
 ### Dataset Loading ###
 
@@ -68,13 +65,11 @@ dataset = DatasetCelebA_Sketch(base_path=DATASET_PATH, excel_path=EXCEL_PATH, sk
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 ## MODELs ###
-retea_G = Generator(img_size=1)
-retea_D = Discriminator(64)
-retea_G.cuda()
-retea_D.cuda()
+E1 = Encoder1(img_size=1)
+E1.cuda()
 
-retea_D.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\\retea_D.pt'))
-retea_G.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\\retea_G.pt'))
+# retea_D.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\\retea_D.pt'))
+# retea_G.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\\retea_G.pt'))
 
 image, sketch, label = dataset[0]
 image2, sketch2, label2 = dataset[2]
