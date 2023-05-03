@@ -1,2 +1,3 @@
-reteaG_15epoci -> rezultate conditionate dar nu foarte frumoase
-retea_30_epoci -> rezultate stricate
+reteaG_10epoci_medium -> rezultate conditionate si destul de bune, culorile au revenit in imagine
+reteaG_20epoci_medium -> rezultate conditionate si bune
+reteaG_30epoci_medium > reteaG_20epoci_medium

@@ -89,8 +89,9 @@ class Generator(nn.Module):
     
     def forward(self, input, labels):
         
+        ic(labels.shape)
         embedded_labels = self.embedd(labels).unsqueeze(2).unsqueeze(3)
-
+        ic(embedded_labels.shape)
         x_conv1 = x = self.conv1(input)  # 1 x 64 x 64
         x_conv2 = x = self.conv2(x) # 64 x 32 x 32
         x_conv3 = x = self.conv3(x) # 128 x 16 x 16
@@ -106,6 +107,7 @@ class Generator(nn.Module):
         # ic(x_conv5.shape)
 
         embedded_labels = embedded_labels.repeat(1,1,2,2)
+        ic(embedded_labels.shape)
         x = torch.cat([x, embedded_labels], dim=1)
         x = self.joint(x) # 562 x 4 x 4
         x = self.resBlock(x)  # 512 x 2 x 2
@@ -133,9 +135,9 @@ class Generator(nn.Module):
 if __name__ == "__main__":
     image_size = [1,64,64] # input img: 64 x 64 for CelebA
     x = torch.randn(4, 1, 64, 64)
-    y = torch.LongTensor([0, 0, 1, 1])  
+    y = torch.LongTensor([0, 0, 0, 0])  
 
-    retea_G = Generator(1)
+    retea_G = Generator(1,1)
     result = retea_G(x, y)
     ic(result.shape)  # should be 3 x 64 x 64
 

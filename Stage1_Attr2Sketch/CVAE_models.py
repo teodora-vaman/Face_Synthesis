@@ -15,11 +15,14 @@ def convLayer(in_channels, out_channels, stride = 2, kernel = 3, padding=1):
     return conv_bn_relu
 
 class Encoder1(nn.Module):
-    def __init__(self, img_channels = 1, attribute_number = 1, dim_zgomot = 1024):
+    def __init__(self, img_channels = 1, attribute_number = 1, dim_zgomot = 256):
         super(Encoder1, self).__init__()
         self.img_channels = img_channels
         self.dim_zgomot = dim_zgomot
         self.embedding_dim = 256
+
+        self.fc1 = nn.Linear(1024, 2048, bias=True)
+        self.relu = nn.ReLU(True)
 
         self.encoder_qPhi = nn.Sequential(
             nn.Conv2d(in_channels=img_channels, out_channels=64, kernel_size=5, stride=1, padding=2, bias=False),
@@ -43,70 +46,81 @@ class Encoder1(nn.Module):
 
         self.encoder_qBeta = nn.Sequential(
             nn.Linear(in_features=self.dim_zgomot, out_features=1024, bias=False),
-            nn.BatchNorm2d(1024),
+            nn.BatchNorm1d(1024),
             nn.ReLU(True)
         )
 
         self.embedd_text = nn.Sequential(
-            nn.Linear(attribute_number, self.embedding_dim, bias=False),
-            nn.BatchNorm2d(self.embedding_dim),
+            nn.Linear(in_features=attribute_number, out_features=256, bias=False), # batch_nr x nr_attribute => batch x 1  out: batch x 256
+            nn.BatchNorm1d(256),
             nn.ReLU(True),
         )
 
         self.fc_append_attr = nn.Sequential(
             nn.Linear(in_features=1024 + 256, out_features=1024),
-            nn.BatchNorm2d(1024),
+            nn.BatchNorm1d(1024),
             nn.ReLU(True)
         )
 
     def encode_latent(self, text_embedding):
-        self.fc1 = nn.Linear(1024, 2048, bias=True)
-        self.relu = nn.ReLU(True)
-        x = self.relu(self.fc1(text_embedding))
+        x = self.fc1(text_embedding)
+        x = self.relu(x)
         mu = x[:, :1024]
         logvar = x[:, 1024:]
         return mu, logvar
     
     def reparametrize(self, mu, logvar):
-        std = logvar.mul(0.5).exp_()
-        eps = torch.cuda.FloatTensor(std.size()).normal_()
-        eps = Variable(eps)
-        return eps.mul(std).add_(mu)
+        sigma = logvar.mul(0.5).exp_()
+        if DEVICE == 'cuda':
+            epsilon = torch.cuda.FloatTensor(sigma.size()).normal_()
+        else:
+            epsilon = torch.FloatTensor(sigma.size()).normal_()
+        epsilon = Variable(epsilon)
+        reparametrized = mu + sigma * epsilon
+        # return eps.mul(sigma).add_(mu)
+        return reparametrized
 
     def forward(self, noise, attr_text, sketch):
         encode_text = self.embedd_text(attr_text)
+
         encode_image = self.encoder_qPhi(sketch)
         encode_image = encode_image.view(-1, 1024)
+        encode_text = encode_text.view(-1,256)
 
-        attr_img_combined = torch.cat((encode_image, encode_text ), 1)
-        attr_img_combined = self.fc_append_attr(attr_img_combined)
+        attr_img_merged = torch.cat((encode_image, encode_text ), 1)
 
-        l_mu , l_logvar = self.encode_latent(attr_img_combined)
-        l_code = self.reparametrize(l_mu, l_logvar)
+        attr_img_merged = self.fc_append_attr(attr_img_merged)
+        sketch_mu , sketch_logvar = self.encode_latent(attr_img_merged)
+        sketch_encoded = self.reparametrize(sketch_mu, sketch_logvar)
+        ic(sketch_mu.shape, sketch_logvar.shape)
 
         encode_noise = self.encoder_qBeta(noise)
-        z_c_code = torch.cat((encode_noise, encode_text ), 1)
-        z_code = self.fc_append_attr(z_c_code)
-        z_mu , z_logvar = self.encode_latent(z_code)
-        z_code = self.reparametrize(z_mu, z_logvar)
+        attr_noise_merged = torch.cat((encode_noise, encode_text ), 1)
+        attr_noise_merged = self.fc_append_attr(attr_noise_merged)
+        noise_mu , noise_logvar = self.encode_latent(attr_noise_merged)
+        attr_noise_encoded = self.reparametrize(noise_mu, noise_logvar)
 
-        return [z_code, z_mu, z_logvar], [l_code, l_mu, l_logvar], encode_text
-
+        return [attr_noise_encoded, noise_mu, noise_logvar], [sketch_encoded, sketch_mu, sketch_logvar], encode_text
 
 
 if __name__ == "__main__":
+    # DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    DEVICE = "cpu"
     image_size = [1,64,64] # input img: 64 x 64 for CelebA
     x = torch.randn(4, 1, 64, 64)
+    # x = x.to(torch.device(DEVICE))
+
     noise = torch.randn(4, 256, 1, 1)
-    y = torch.LongTensor([0, 0, 1, 1])
-    test_y = torch.LongTensor([[0], [0], [1], [2]])    
+    noise = torch.FloatTensor(4, 256).normal_(0, 1)
+    # noise = noise.to(torch.device(DEVICE))
+
+    y = torch.FloatTensor([0, 0, 1, 1]).float()
+    test_y = torch.FloatTensor([[0], [0], [1], [1]])
 
     E1 = Encoder1()
+    output_noise_gauss, output_sketch_gauss, encode_text = E1(noise=noise, attr_text = test_y, sketch = x)
+    ic(output_sketch_gauss[0].shape) # should be 4 x 1024
+    ic(output_noise_gauss[0].shape) # should be 4 x 1024
+    ic(encode_text.shape) # should be 4 x 256
 
-    output = E1(noise, y, x)
-    ic(output)
-
-    # retea_G = Generator(1)
-    # result = retea_G(x, y)
-    # ic(result.shape)  # should be 3 x 64 x 64
 

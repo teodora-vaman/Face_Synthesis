@@ -25,13 +25,13 @@ seed = 999
 random.seed(seed)
 torch.manual_seed(seed)
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 
 ### Configuration ###
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 16
-EPOCHS = 50
+EPOCHS = 10
 LEARING_RATE = 0.01  # Karapthy constant: 3e-4
 NOISE_DIM = 200  # Dimensiunea vectorului zgomot latent
 
@@ -73,8 +73,8 @@ retea_D = Discriminator(64)
 retea_G.cuda()
 retea_D.cuda()
 
-# retea_D.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\checkpoints\\retea_D_20epoci_medium.pt'))
-# retea_G.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\checkpoints\\retea_G_20epoci_medium.pt'))
+retea_D.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\checkpoints\\retea_D_20epoci_medium.pt'))
+retea_G.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage3_Sketch2Face\checkpoints\\retea_G_20epoci_medium.pt'))
 
 image, sketch, label = dataset[0]
 image2, sketch2, label2 = dataset[31]
@@ -90,8 +90,8 @@ loss_D  = nn.BCELoss()
 optimizator_G = optim.Adam(retea_G.parameters(), lr=LEARING_RATE, betas=(0.5, 0.999))
 optimizator_D = optim.Adam(retea_D.parameters(), lr=LEARING_RATE, betas=(0.5, 0.999))
 
-scheduler_G = torch.optim.lr_scheduler.StepLR(optimizer = optimizator_G, step_size = 10, gamma=0.1)
-scheduler_D = torch.optim.lr_scheduler.StepLR(optimizer = optimizator_D, step_size = 10, gamma=0.1)
+scheduler_G = torch.optim.lr_scheduler.StepLR(optimizer = optimizator_G, step_size = 5, gamma=0.1)
+scheduler_D = torch.optim.lr_scheduler.StepLR(optimizer = optimizator_D, step_size = 5, gamma=0.1)
 
 img_list = []
 
@@ -145,8 +145,8 @@ for epoca in range(EPOCHS):
         wandb.log({"loss_G": loss_G, "loss_D": loss_D3, "D(x)":D_x, "D(G(z))-before_update":D_G_z1, "D(G(z))":D_G_z2})
 
     
-    torch.save(retea_D.state_dict(), 'retea_D_2.pt')
-    torch.save(retea_G.state_dict(), 'retea_G_2.pt')
+    torch.save(retea_D.state_dict(), 'Stage3_Sketch2Face\\retea_D_2.pt')
+    torch.save(retea_G.state_dict(), 'Stage3_Sketch2Face\\retea_G_2.pt')
 
     with torch.no_grad():
         esantioane_proba = esantioane_proba.to(torch.device(DEVICE))
