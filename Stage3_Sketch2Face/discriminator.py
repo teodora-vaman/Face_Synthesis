@@ -31,11 +31,6 @@ class Discriminator(nn.Module):
         self.bn4 = nn.BatchNorm2d(256)
         self.lrelu4 = nn.LeakyReLU(0.2, inplace=True)
 
-        # # nr_imag x 128 x 4 x 4
-        # self.conv5 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=1, stride=1, padding=0, bias=False)
-        # self.bn5 = nn.BatchNorm2d(256)
-        # self.lrelu5 = nn.LeakyReLU(0.2, inplace=True)
-
         # nr_imag x 256 x 4 x 4
         self.out = nn.Linear(in_features=256 * 4 * 4, out_features=1)
         self.sigmoid = nn.Sigmoid()
@@ -62,11 +57,6 @@ class Discriminator(nn.Module):
         x = self.bn4(x)
         x = self.lrelu4(x)
 
-        # x = self.conv5(x)
-        # x = self.bn5(x)
-        # x = self.lrelu5(x)
-
-        # x = torch.flatten(x, 1, 3)
         x = torch.flatten(x, 1)
         x = self.out(x)
 

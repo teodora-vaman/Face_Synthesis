@@ -40,7 +40,7 @@ class Decoder(nn.Module):
         self.transform_layer = nn.Conv2d(in_channels=4, out_channels=1, kernel_size=3, stride=1,padding=1)
         self.out = nn.Sigmoid()
 
-    def forward(self, noise_embedded, sketch_embedded):
+    def forward(self, noise_embedded, sketch_embedded, detach_flag = False):
         # reshape as a 64 x 4 x 4 feature map
         sketch_embedded = sketch_embedded.view(-1,64,4,4)
         noise_embedded  = noise_embedded.view(-1,64,4,4)
@@ -54,7 +54,11 @@ class Decoder(nn.Module):
         sketch_image = self.out(sketch_image)
         fake_image   = self.out(fake_image)
 
-        return sketch_image, fake_image
+        if detach_flag == False:
+            return sketch_image, fake_image
+        else:
+            return sketch_image.detach(), fake_image.detach()
+
 
 
 if __name__ == "__main__":
@@ -63,7 +67,7 @@ if __name__ == "__main__":
 
     D1 = Decoder()
 
-    output_sk, output_fake = D1(noise_x, sketch_x)
-    ic(output_sk.shape)
+    output_sk, output_fake = D1(noise_x, sketch_x, detach_flag=True)
+    ic(output_sk.shape) # should be 4 x 1 x 64 x 64
 
 

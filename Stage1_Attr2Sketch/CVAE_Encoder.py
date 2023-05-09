@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.utils.data
 from torch.autograd import Variable
 from icecream import ic
-
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def convLayer(in_channels, out_channels, stride = 2, kernel = 3, padding=1):
     conv_bn_relu = nn.Sequential(
@@ -14,9 +14,9 @@ def convLayer(in_channels, out_channels, stride = 2, kernel = 3, padding=1):
 
     return conv_bn_relu
 
-class Encoder1(nn.Module):
+class Encoder(nn.Module):
     def __init__(self, img_channels = 1, attribute_number = 1, dim_zgomot = 256):
-        super(Encoder1, self).__init__()
+        super(Encoder, self).__init__()
         self.img_channels = img_channels
         self.dim_zgomot = dim_zgomot
         self.embedding_dim = 256
@@ -69,18 +69,19 @@ class Encoder1(nn.Module):
         logvar = x[:, 1024:]
         return mu, logvar
     
-    def reparametrize(self, mu, logvar):
+    def reparametrize(self, mu, logvar, device = 'cuda'):
         sigma = logvar.mul(0.5).exp_()
-        if DEVICE == 'cuda':
+        if device == 'cuda':
             epsilon = torch.cuda.FloatTensor(sigma.size()).normal_()
         else:
             epsilon = torch.FloatTensor(sigma.size()).normal_()
         epsilon = Variable(epsilon)
+        # reparametrized = epsilon.mul(sigma).add_(mu)
         reparametrized = mu + sigma * epsilon
         # return eps.mul(sigma).add_(mu)
         return reparametrized
 
-    def forward(self, noise, attr_text, sketch):
+    def forward(self, noise, attr_text, sketch, detach_flag = False):
         encode_text = self.embedd_text(attr_text) # batch x 256
         encode_image = self.encoder_qPhi(sketch) # batch x 1024 x 1 x 1
         encode_image = encode_image.view(-1, 1024)
@@ -98,7 +99,11 @@ class Encoder1(nn.Module):
         noise_mu , noise_logvar = self.encode_latent(attr_noise_merged)
         noise_embedded = self.reparametrize(noise_mu, noise_logvar)
 
-        return [noise_embedded, noise_mu, noise_logvar], [sketch_embedded, sketch_mu, sketch_logvar], encode_text
+        if detach_flag == False:
+            return [noise_embedded, noise_mu, noise_logvar], [sketch_embedded, sketch_mu, sketch_logvar], encode_text
+        else:
+            return [noise_embedded.detach(), noise_mu.detach(), noise_logvar.detach()], [sketch_embedded.detach(), sketch_mu.detach(), sketch_logvar.detach()], encode_text.detach()
+
 
 
 if __name__ == "__main__":
@@ -115,7 +120,7 @@ if __name__ == "__main__":
     y = torch.FloatTensor([0, 0, 1, 1]).float()
     test_y = torch.FloatTensor([[0], [0], [1], [1]])
 
-    E1 = Encoder1()
+    E1 = Encoder()
     output_noise, output_sketch, encode_text = E1(noise=noise, attr_text = test_y, sketch = x)
     ic(output_sketch[0].shape) # should be 4 x 1024
     ic(output_noise[0].shape) # should be 4 x 1024
