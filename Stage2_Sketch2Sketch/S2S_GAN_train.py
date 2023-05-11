@@ -16,8 +16,7 @@ from tqdm import tqdm
 import wandb
 from PIL import Image
 
-from CVAE_Encoder import Encoder
-from CVAE_Decoder import Decoder
+
 
 from dataset import DatasetCelebA_Sketch
 import pandas as pd
@@ -34,11 +33,10 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 ### ------------------------------------------------------ ###
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 8
-EPOCHS = 5
-LEARING_RATE = 0.001  # Karapthy constant: 3e-4
+BATCH_SIZE = 16
+EPOCHS = 30
+LEARING_RATE = 0.01  # Karapthy constant: 3e-4
 NOISE_DIM = 256  # Dimensiunea vectorului zgomot latent
-ATTR_DIM = 4
 
 wandb.init(
     # mode="disabled",
@@ -47,10 +45,9 @@ wandb.init(
     config={
     "learning_rate": LEARING_RATE,
     "architecture": "CVAE",
-    "dataset": "CelebA_medium",
+    "dataset": "CelebA_big",
     "epochs": EPOCHS,
     "batch_size":BATCH_SIZE,
-    "attribute dimension":ATTR_DIM,
     "working_phase": "test"
     }
 )
@@ -60,20 +57,19 @@ wandb.init(
 #                     Dataset Loading                        #
 ### ------------------------------------------------------ ###
 
-# EXCEL_PATH = "E:\Lucru\Dizertatie\Cod\ConditionalGAN_onlyGender\CelebA\celebA_onlyGender.xlsx"
-# DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA\img_align_celeba\img_align_celeba\\"
-# SKETCH_DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA\img_align_celeba\img_align_celeba_sketch\\"
+EXCEL_PATH = "E:\Lucru\Dizertatie\Cod\ConditionalGAN_onlyGender\CelebA\celebA_onlyGender.xlsx"
+DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA\img_align_celeba\img_align_celeba\\"
+SKETCH_DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA\img_align_celeba\img_align_celeba_sketch\\"
 
 # EXCEL_PATH = "Database\celebA_small.xlsx"
 # DATASET_PATH = "Database\small_dataset\\"
 # SKETCH_DATASET_PATH = "Database\small_dataset_sketch\\"
 
+# EXCEL_PATH = "Database\celebA_medium.xlsx"
+# DATASET_PATH = "Database\medium_dataset\\"
+# SKETCH_DATASET_PATH = "Database\medium_dataset_sketch\\"
 
-EXCEL_PATH = "Database\celebA_medium.xlsx"
-DATASET_PATH = "Database\medium_dataset\\"
-SKETCH_DATASET_PATH = "Database\medium_dataset_sketch\\"
-
-dataset = DatasetCelebA_Sketch(base_path=DATASET_PATH, excel_path=EXCEL_PATH, sketch_path=SKETCH_DATASET_PATH, attribute_dim=ATTR_DIM)
+dataset = DatasetCelebA_Sketch(base_path=DATASET_PATH, excel_path=EXCEL_PATH, sketch_path=SKETCH_DATASET_PATH)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 
@@ -81,21 +77,19 @@ dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 #                 Models initialization                      #
 ### ------------------------------------------------------ ###
 
-encoder = Encoder(attribute_number=ATTR_DIM)
-decoder = Decoder(attribute_number=ATTR_DIM)
+encoder = Encoder()
+decoder = Decoder()
 encoder.cuda()
 decoder.cuda()
 
-# decoder.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage1_Attr2Sketch\\retea_Decoder.pt'))
-# encoder.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage1_Attr2Sketch\\retea_Encoder.pt'))
+decoder.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage1_Attr2Sketch\\retea_Decoder.pt'))
+encoder.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage1_Attr2Sketch\\retea_Encoder.pt'))
 
 image, sketch, label = dataset[0]
 image2, sketch2, label2 = dataset[2]
 
 esantioane_proba = torch.stack([sketch, sketch2], dim=0)
-etichete_proba = torch.FloatTensor([[0,1,0,1], [1,0,0,1]])
-
-
+etichete_proba = torch.FloatTensor([[0], [1]])
 
 img_list_sketch = []
 img_list_noise = []
@@ -168,8 +162,8 @@ for epoca in range(EPOCHS):
     torch.save(encoder.state_dict(), 'Stage1_Attr2Sketch\\retea_Encoder.pt')
     torch.save(decoder.state_dict(), 'Stage1_Attr2Sketch\\retea_Decoder.pt')
 
-    # scheduler_E.step()
-    # scheduler_D.step()
+    scheduler_E.step()
+    scheduler_D.step()
 
     with torch.no_grad():
         esantioane_proba = esantioane_proba.to(torch.device(DEVICE))
