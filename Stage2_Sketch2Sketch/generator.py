@@ -14,9 +14,9 @@ def convLayer(in_channels, out_channels, stride = 2, kernel = 3, padding=1):
     return conv_bn_relu
 
 
-def deconvLayer(in_channels, out_channels, stride = 2):
+def deconvLayer(in_channels, out_channels, kernel = 4, stride = 2, padding = 1):
     conv_bn_relu = nn.Sequential(
-        nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=4, stride=stride,padding=1),
+        nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel, stride=stride, padding=padding, bias=False),
         nn.BatchNorm2d(out_channels),
         nn.ReLU()
     )
@@ -43,17 +43,19 @@ class ResBlock(nn.Module):
         return out
     
 
-class BottleneckLayer():
-    def __init__(self, in_channels, out_channels):
+class BottleneckLayer(nn.Module):
+    def __init__(self, in_channels, growth_rate):
         super(BottleneckLayer, self).__init__()
-        intermidiate_channels = out_channels * 4
 
-        # pastreza dimensiunea, modifica numarul trasaturilor (channels)
+        intermidiate_channels = growth_rate * 4
+
+        # pastreza dimensiunea (kernel = 1), modifica numarul trasaturilor (channels)
         self.conv_1x1 = nn.Conv2d(in_channels=in_channels, out_channels=intermidiate_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn1 = nn.BatchNorm2d(intermidiate_channels)
 
-        self.conv_3x3 = nn.Conv2d(in_channels=intermidiate_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_channels)
+        # pastreza dimensiunea (kernel = 3), modifica numarul trasaturilor (channels)
+        self.conv_3x3 = nn.Conv2d(in_channels=intermidiate_channels, out_channels=growth_rate, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(growth_rate)
 
         self.relu = nn.ReLU(inplace=True)
     
@@ -68,73 +70,111 @@ class BottleneckLayer():
 
         return torch.cat([x,out], dim=1)
 
-class BottleneckLayer():
+class DTransitionLayer(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(BottleneckLayer, self).__init__()
-        intermidiate_channels = out_channels * 4
+        super(DTransitionLayer, self).__init__()
 
-        # pastreza dimensiunea, modifica numarul trasaturilor (channels)
-        self.conv_1x1 = nn.Conv2d(in_channels=in_channels, out_channels=intermidiate_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.bn1 = nn.BatchNorm2d(intermidiate_channels)
-
-        self.conv_3x3 = nn.Conv2d(in_channels=intermidiate_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-
-        self.relu = nn.ReLU(inplace=True)
-    
-    def forward(self, x):
-        out = self.conv_1x1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv_3x3(out)
-        out = self.bn2(out)
-        out = self.relu(out)
-
-        return torch.cat([x,out], dim=1)
-
-
-
-    
-def denseLayer(in_channels, out_channels):
-    pass
-
-class Generator(nn.Module):
-    def __init__(self, img_size, attribute_number = 2):
-        super(Generator, self).__init__()
-        self.img_size = img_size
-        embeding_size = 50
-        self.embedd = nn.Embedding(attribute_number, embeding_size)
-        
-        ## ENCODER PART
-        self.conv1 = convLayer(in_channels=img_size, out_channels=64)
-        self.conv2 = convLayer(in_channels=64, out_channels=128)
-        self.conv3 = convLayer(in_channels=128, out_channels=256)
-        self.conv4 = convLayer(in_channels=256, out_channels=512)
-        self.conv5 = convLayer(in_channels=512, out_channels=512)
-
-        self.joint = nn.Sequential(
-            nn.Conv2d(embeding_size+512, 512, kernel_size=3, stride=1,
-                     padding=1, bias=False),
-            nn.BatchNorm2d(512),
-            nn.ReLU(True),
-        )
-
-        ## RES NET BLOCK
-        self.resBlock = self._make_layer(ResBlock, 512)
-        # self.conv0 = convLayer(in_channels=512 + embeding_size, out_channels=512, stride=2, kernel=1, padding=0)
-
-
-        ## DECODER PART
-        self.tconv1 = deconvLayer(in_channels=512 * 2, out_channels=512)
-        self.tconv2 = deconvLayer(in_channels=512 * 2, out_channels=256)
-        self.tconv3 = deconvLayer(in_channels=256 * 2, out_channels=128)
-        self.tconv4 = deconvLayer(in_channels=128 * 2, out_channels=64)
-        self.tconv5 = deconvLayer(in_channels=64 * 2, out_channels=3)
-
+        self.block = deconvLayer(in_channels=in_channels, out_channels=out_channels, kernel=1, stride=1,padding=0)
         self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
 
-        # nr_imag x 3 x 64 x 64
+        
+    def forward(self, x):
+        out = self.block(x)
+        out = self.upsample(out)
+
+        return out
+
+class DenseLayer(nn.Module):
+    def __init__(self):
+        super(DenseLayer, self).__init__()
+
+        densenet121 = torch.hub.load('pytorch/vision:v0.10.0', 'densenet121', pretrained=True)
+
+        self.conv0 = densenet121.features.conv0 # conv 64
+        self.norm0 = densenet121.features.norm0
+        self.relu0 = densenet121.features.relu0
+        self.pool0 = densenet121.features.pool0
+
+        ############# Block1-down 16x16  ##############
+        self.dense_block1 = densenet121.features.denseblock1
+        self.trans_block1 = densenet121.features.transition1
+
+    def forward(self, x):
+        x0 = self.pool0(self.relu0(self.norm0(self.conv0(x))))
+
+        out = self.pool0(x)
+
+        return x0
+    
+class Generator(nn.Module):
+    def __init__(self, attribute_number = 4):
+        super(Generator, self).__init__()
+
+        self.embedding_dim = 256
+        densenet121 = torch.hub.load('pytorch/vision:v0.10.0', 'densenet121', pretrained=True)
+
+        self.conv_3x3 = convLayer(in_channels=1, out_channels=64, kernel=3, stride=2,padding=1) # nr_img x 64 x 32 x 32
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2) # nr_img x 64 x 16 x 16
+
+        ##                   SCALE DOWN                   ##
+        ## ------------     Dense Block 1     ----------- ##
+        ## -------   64 - > 256 -> 128 channels   ------- ##
+        ## -------      16 x 16 -> 8 x 8 size     ------- ##
+        self.dense_block1 = densenet121.features.denseblock1
+        self.trans_block1 = densenet121.features.transition1
+
+        ## ------------     Dense Block 2     ----------- ##
+        ## -------   128 - > 512 -> 256 channels  ------- ##
+        ## -------      8 x 8 -> 4 x 4 size       ------- ##
+        self.dense_block2 = densenet121.features.denseblock2
+        self.trans_block2 = densenet121.features.transition2
+
+        ## ------------     Dense Block 3     ----------- ##
+        ## -------   256 - > 1024 -> 512 channels  -------##
+        ## -------      4 x 4 -> 2 x 2 size       ------- ##
+        self.dense_block3 = densenet121.features.denseblock3
+        self.trans_block3 = densenet121.features.transition3
+
+        ## ------      Joining the attributes      ------ ##
+        ##          output : nr_img x 512 x 2 x 2         ##
+        self.join = convLayer(512 + self.embedding_dim, 512,kernel=3,stride=1)
+        self.resBlock = self._make_layer(ResBlock, 512)
+
+        ##                     EXPAND                     ##
+        ## ------------     Dense Block 4     ----------- ##
+        ## ---   512 - > 512 + 256 -> 128 channels    --- ##
+        ## -------      2 x 2 -> 4 x 4 size       ------- ##
+        self.dense_block4 = BottleneckLayer(in_channels=512, growth_rate=256)
+        self.trans_block4 = DTransitionLayer(in_channels=512 + 256, out_channels=128)
+
+        ## ------------     Dense Block 5     ----------- ##
+        ## 128 concat 256 - > 256 -> 256 x 2 + 128 -> 128 channels ##
+        ## -------      4 x 4 -> 8 x 8 size       ------- ##
+        self.dense_block5 = BottleneckLayer(in_channels=128 + 256, growth_rate=256)
+        self.trans_block5 = DTransitionLayer(in_channels=512 + 128, out_channels=128)
+
+        ## ------------     Dense Block 6     ----------- ##
+        ## ---      128 - > 128*3 -> 64 channels      --- ##
+        ## -------      8 x 8 -> 16 x 16 size     ------- ##
+        self.dense_block6 = BottleneckLayer(in_channels=128+128, growth_rate=128)
+        self.trans_block6 = DTransitionLayer(in_channels=128*3, out_channels=64)
+
+        ## ------------     Dense Block 7     ----------- ##
+        ## ---        64 - > 128 -> 32 channels       --- ##
+        ## -------      16 x 16 -> 32 x 32 size     ------- ##
+        self.dense_block7 = BottleneckLayer(in_channels=64, growth_rate=64)
+        self.trans_block7 = DTransitionLayer(in_channels=64+64, out_channels=32)
+
+        ## ------------     Dense Block 8     ----------- ##
+        ## ---        32 - > 64 -> 16 channels        --- ##
+        ## -------      32 x 32 -> 64 x 64 size    ------ ##
+        self.dense_block8 = BottleneckLayer(in_channels=32, growth_rate=32)
+        self.trans_block8 = DTransitionLayer(in_channels=32+32, out_channels=16)
+
+        ## ------------    Last CONV Layer    ----------- ##
+        self.conv2 =  convLayer(in_channels=16, out_channels=1,stride=1)
+    
+        # nr_imag x 1 x 64 x 64
         self.out = nn.Sigmoid()
     
     def _make_layer(self, block, channels_number):
@@ -143,57 +183,70 @@ class Generator(nn.Module):
             layers.append(block(channels_number))
         return nn.Sequential(*layers)
     
-    def forward(self, input, labels):
-        
-        ic(labels.shape)
-        embedded_labels = self.embedd(labels).unsqueeze(2).unsqueeze(3)
-        ic(embedded_labels.shape)
-        x_conv1 = x = self.conv1(input)  # 1 x 64 x 64
-        x_conv2 = x = self.conv2(x) # 64 x 32 x 32
-        x_conv3 = x = self.conv3(x) # 128 x 16 x 16
-        x_conv4 = x = self.conv4(x) # 256 x 8 x 8
-        x_conv5 = x = self.conv5(x) # 512 x 4 x 4
-        # x = self.conv6(x)
+    def forward(self, input, attribute_encoding):
+        # input : 1 x 64 x 64
+        # attribute_encoding : 256 x 1 x 1
 
-        # ic(input.shape)
-        # ic(x_conv1.shape)
-        # ic(x_conv2.shape)
-        # ic(x_conv3.shape)
-        # ic(x_conv4.shape)
-        # ic(x_conv5.shape)
+        ##                   SCALE DOWN                   ##
+        x0 = self.conv_3x3(input)
+        x0 = self.pool1(x0)
 
-        embedded_labels = embedded_labels.repeat(1,1,2,2)
-        ic(embedded_labels.shape)
-        x = torch.cat([x, embedded_labels], dim=1)
-        x = self.joint(x) # 562 x 4 x 4
-        x = self.resBlock(x)  # 512 x 2 x 2
+        x1 = self.dense_block1(x0)
+        x1 = self.trans_block1(x1)
 
+        x2 = self.dense_block2(x1)
+        x2 = self.trans_block2(x2)
 
-        # x = self.upsample(x)  # 562 x 8 x 8
-        # x = self.conv0(x) # 512 x 4 x 4
+        x3 = self.dense_block3(x2)
+        x3 = self.trans_block3(x3)
 
-        # x = self.tconv1(x + x_conv5)
-        # x = self.tconv2(x + x_conv4)
-        # x = self.tconv3(x + x_conv3)
-        # x = self.tconv4(x + x_conv2)
-        # x = self.tconv5(x + x_conv1)
+        ## ------      Joining the attributes      ------ ##
+        attribute_encoding = attribute_encoding.view(-1, self.embedding_dim,1,1)
+        attribute_encoding = attribute_encoding.repeat(1,1,2,2)
 
-        x = self.tconv1(torch.cat([x, x_conv5],1)) # 512 x 4 x 4
-        x = self.tconv2(torch.cat([x, x_conv4],1)) # 256 x 8 x 8
-        x = self.tconv3(torch.cat([x, x_conv3],1)) # 128 x 16 x 16
-        x = self.tconv4(torch.cat([x, x_conv2],1)) # 64 x 32 x 32
-        x = self.tconv5(torch.cat([x, x_conv1],1)) # 3 # 64 # 64
+        x_join = self.join(torch.cat([x3, attribute_encoding],1))
+        x_join = self.resBlock(x_join)
 
+        ##                     EXPAND                     ##
+        ## Block 2 + Block 4
+        ## Block 1 + Block 5
 
-        return x
+        x4 = self.dense_block4(x_join)
+        x4 = self.trans_block4(x4) # nr_img x 128 x 4 x 4
+
+        x_4_2 = torch.cat([x4,x2], dim=1)
+        x5 = self.dense_block5(x_4_2)
+        x5 = self.trans_block5(x5)  # nr_img x 128 x 8 x 8
+
+        x_5_1 = torch.cat([x5,x1], dim=1)
+        x6 = self.dense_block6(x_5_1)
+        x6 = self.trans_block6(x6)  # nr_img x 64 x 16 x 16
+
+        x7 = self.dense_block7(x6)
+        x7 = self.trans_block7(x7)  # nr_img x 32 x 32 x 32
+
+        x8 = self.dense_block8(x7)
+        x8 = self.trans_block8(x8)  # nr_img x 16 x 64 x 64
+
+        x9 = self.conv2(x8)
+        out = self.out(x9)
+
+        return out
 
 
 if __name__ == "__main__":
     image_size = [1,64,64] # input img: 64 x 64 for CelebA
     x = torch.randn(4, 1, 64, 64)
-    y = torch.LongTensor([0, 0, 0, 0])  
+    # y = torch.LongTensor([[0,0,0,0]]) 
+    y = torch.randn(4, 256, 1, 1)
 
-    retea_G = Generator(1,1)
-    result = retea_G(x, y)
-    ic(result.shape)  # should be 3 x 64 x 64
+    # retea_G = Generator(1,1)
+    # result = retea_G(x, y)
+    # ic(result.shape)  # should be 1 x 64 x 64
+
+    retea_G = Generator()
+
+    result = retea_G(x,y)
+    ic(result.shape)
+
 
