@@ -5,15 +5,16 @@ from icecream import ic
 
 
 class Discriminator(nn.Module):
-    def __init__(self, img_size, attribute_number=2):
+    def __init__(self, img_size, attribute_number=4):
         super(Discriminator, self).__init__()
 
         self.img_size = img_size
+        self.embedd_dim = 256
 
-        self.embedd = nn.Embedding(attribute_number, img_size * img_size)
+        self.attribute_reshape = nn.Linear(in_features=self.embedd_dim, out_features=img_size*img_size)
 
-        # intrare imagine reala - nr_imag x 3 x 64 x 64
-        self.conv1 = nn.Conv2d(in_channels=4, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False)
+        # intrare imagine reala - nr_imag x 1 x 64 x 64
+        self.conv1 = nn.Conv2d(in_channels=2, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False)
         self.lrelu1 = nn.LeakyReLU(0.2, inplace=True)
 
         # nr_imag x 16 x 32 x 32
@@ -37,10 +38,14 @@ class Discriminator(nn.Module):
 
     
 
-    def forward(self, input, labels):
+    def forward(self, input, attribute_encoding):
+        # input: 1 x 64 x 64
+        # attribute_encoding: 256 x 1 x 1
+        # attribute_encoding = attribute_encoding.view(-1, 256, 1, 1)
+        attribute_encoding = self.attribute_reshape(attribute_encoding.view(attribute_encoding.size(0), -1))
+        attribute_encoding = attribute_encoding.view(-1, 1, self.img_size, self.img_size)
 
-        embedded_labels = self.embedd(labels).view(labels.shape[0], 1, self.img_size, self.img_size)
-        x = torch.cat([input, embedded_labels], dim=1)
+        x = torch.cat([input, attribute_encoding], dim=1)
 
         x = self.conv1(x)
         x = self.lrelu1(x)
@@ -65,13 +70,14 @@ class Discriminator(nn.Module):
 
 if __name__ == "__main__":
     image_size = [1,64,64] # input img: 64 x 64 for CelebA
-    x = torch.randn(4, 3, 64, 64)
-    y = torch.LongTensor([0, 0, 1, 1])  
+    x = torch.randn(4, 1, 64, 64)
+    y = torch.randn(4, 256)
+
 
     retea_D = Discriminator(64)
     result = retea_D(x, y)
-    D_x = result.mean().item()
+    # D_x = result.mean().item()
     ic(result.shape)  # should be [4, 1]
-    ic(result)
-    ic(D_x)
+    # ic(result)
+    # ic(D_x)
 

@@ -70,8 +70,7 @@ class DatasetCelebA_Sketch(Dataset):
         self.transf_sketch = transforms.Compose([
         transforms.ToPILImage(),
         transforms.Resize([64,64]),
-        transforms.ToTensor(),
-        transforms.Grayscale(1)])
+        transforms.ToTensor()])
 
         # transforms.Grayscale(1)
 

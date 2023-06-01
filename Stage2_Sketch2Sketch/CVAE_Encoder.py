@@ -15,7 +15,7 @@ def convLayer(in_channels, out_channels, stride = 2, kernel = 3, padding=1):
     return conv_bn_relu
 
 class Encoder(nn.Module):
-    def __init__(self, img_channels = 3, attribute_number = 1, dim_zgomot = 256):
+    def __init__(self, img_channels = 1, attribute_number = 1, dim_zgomot = 256):
         super(Encoder, self).__init__()
         self.img_channels = img_channels
         self.dim_zgomot = dim_zgomot

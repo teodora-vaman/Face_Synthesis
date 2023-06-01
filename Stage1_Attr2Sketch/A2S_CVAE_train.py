@@ -27,16 +27,16 @@ seed = 999
 random.seed(seed)
 torch.manual_seed(seed)
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 ### ------------------------------------------------------ ###
 #                       Configuration                        #
 ### ------------------------------------------------------ ###
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 8
-EPOCHS = 5
-LEARING_RATE = 0.001  # Karapthy constant: 3e-4
+BATCH_SIZE = 8 
+EPOCHS = 10
+LEARING_RATE = 0.01  # Karapthy constant: 3e-4
 NOISE_DIM = 256  # Dimensiunea vectorului zgomot latent
 ATTR_DIM = 4
 
@@ -46,12 +46,12 @@ wandb.init(
 
     config={
     "learning_rate": LEARING_RATE,
-    "architecture": "CVAE",
+    "architecture": "CVAE",   
     "dataset": "CelebA_medium",
     "epochs": EPOCHS,
     "batch_size":BATCH_SIZE,
     "attribute dimension":ATTR_DIM,
-    "working_phase": "test"
+    "working_phase": "3 channel output"
     }
 )
 
@@ -94,8 +94,6 @@ image2, sketch2, label2 = dataset[2]
 
 esantioane_proba = torch.stack([sketch, sketch2], dim=0)
 etichete_proba = torch.FloatTensor([[0,1,0,1], [1,0,0,1]])
-
-
 
 img_list_sketch = []
 img_list_noise = []
@@ -146,12 +144,12 @@ for epoca in range(EPOCHS):
         optimizatorDecoder.zero_grad()
 
         ## ---------------  backward_CVAE   --------------- ##
-        KL_loss_noise = KL_loss(mu=noise_embedded[1], logvar=noise_embedded[2])
-        KL_loss_sketch = KL_loss(mu=sketch_embedded[1], logvar=sketch_embedded[2])
+        KL_loss_noise = KL_loss(mu=noise_embedded[1], logvar=noise_embedded[2]) * 100
+        KL_loss_sketch = KL_loss(mu=sketch_embedded[1], logvar=sketch_embedded[2]) * 100
 
         # reconstruction_loss1 = GaussianCriterion(reconstructed_sketch_image, sketch_data) * 0.0001
         # reconstruction_loss2 = GaussianCriterion(reconstructed_fake_image, sketch_data) * 0.0001
-        reconstruction_loss1 = loss_function(reconstructed_sketch_image, sketch_data) 
+        reconstruction_loss1 = loss_function(reconstructed_sketch_image, sketch_data)
         reconstruction_loss2 = loss_function(reconstructed_fake_image, sketch_data) 
 
         reconstruction_loss  =  reconstruction_loss1 + reconstruction_loss2
@@ -163,7 +161,7 @@ for epoca in range(EPOCHS):
         optimizatorDecoder.step()
 
     wandb.log({"KL_loss_noise": KL_loss_noise, "KL_loss_sketch": KL_loss_sketch, "Reconstruction_loss":reconstruction_loss, "Loss":loss})
-
+    print(f"KL_loss_noise: {KL_loss_noise}, KL_loss_sketch: {KL_loss_sketch}, Reconstruction_loss:{reconstruction_loss}, Loss:{loss}")
 
     torch.save(encoder.state_dict(), 'Stage1_Attr2Sketch\\retea_Encoder.pt')
     torch.save(decoder.state_dict(), 'Stage1_Attr2Sketch\\retea_Decoder.pt')
@@ -192,10 +190,10 @@ for epoca in range(EPOCHS):
 
 
 # Afisarea ultimelor imagini de proba generate
-# plt.figure()
-# plt.title("Imagini generate")
-# plt.imshow(np.transpose(img_list_sketch[-1],(1,2,0)))
-# plt.show()
+plt.figure()
+plt.title("Imagini generate")
+plt.imshow(np.transpose(img_list_sketch[-1],(1,2,0)))
+plt.show()
 
 
 

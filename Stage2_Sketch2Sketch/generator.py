@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data
 from icecream import ic
+from torchvision.models import DenseNet121_Weights
 
 
 def convLayer(in_channels, out_channels, stride = 2, kernel = 3, padding=1):
@@ -111,7 +112,7 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
 
         self.embedding_dim = 256
-        densenet121 = torch.hub.load('pytorch/vision:v0.10.0', 'densenet121', pretrained=True)
+        densenet121 = torch.hub.load('pytorch/vision:v0.10.0', 'densenet121', weights=DenseNet121_Weights.IMAGENET1K_V1)
 
         self.conv_3x3 = convLayer(in_channels=1, out_channels=64, kernel=3, stride=2,padding=1) # nr_img x 64 x 32 x 32
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2) # nr_img x 64 x 16 x 16
@@ -238,15 +239,10 @@ if __name__ == "__main__":
     image_size = [1,64,64] # input img: 64 x 64 for CelebA
     x = torch.randn(4, 1, 64, 64)
     # y = torch.LongTensor([[0,0,0,0]]) 
-    y = torch.randn(4, 256, 1, 1)
-
-    # retea_G = Generator(1,1)
-    # result = retea_G(x, y)
-    # ic(result.shape)  # should be 1 x 64 x 64
+    y = torch.randn(4, 256)
 
     retea_G = Generator()
-
     result = retea_G(x,y)
-    ic(result.shape)
+    ic(result.shape) # should be 1 x 64 x 64
 
 

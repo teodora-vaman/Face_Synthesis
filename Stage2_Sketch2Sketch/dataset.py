@@ -52,14 +52,15 @@ class DatasetCelebA(Dataset):
         return batch_data, batch_labels
 
 class DatasetCelebA_Sketch(Dataset):
-    def __init__(self, base_path, excel_path, sketch_path):
-        
+    def __init__(self, base_path, excel_path, sketch_path, attribute_dim = 1):
+        ATTR_DIM = attribute_dim
         df = pd.read_excel(excel_path)
 
         self.base_path = base_path
         self.sketch_path = sketch_path
-        self.data = df["image_id"]
-        self.labels = df["Male"]
+        self.data_id = df["image_id"]
+        # self.labels = df["Male"]
+        self.labels = df.iloc[:, 1:(ATTR_DIM + 1)]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.transf = transforms.Compose([
@@ -76,14 +77,14 @@ class DatasetCelebA_Sketch(Dataset):
         # transforms.Grayscale(1)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data_id)
         
     def __getitem__(self, idx):
 
-        img = cv2.imread(self.base_path + self.data[idx])
+        img = cv2.imread(self.base_path + self.data_id[idx])
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        sketch_img = cv2.imread(self.sketch_path + self.data[idx])
+        sketch_img = cv2.imread(self.sketch_path + self.data_id[idx])
         sketch_img = cv2.cvtColor(sketch_img, cv2.COLOR_BGR2RGB)
 
         batch_data = img
@@ -92,7 +93,8 @@ class DatasetCelebA_Sketch(Dataset):
         batch_sketch_data = sketch_img
         batch_sketch_data = self.transf_sketch(batch_sketch_data)
 
-        batch_labels = self.labels[idx]
+        # batch_labels = self.labels[idx]
+        batch_labels = self.labels.iloc[idx].values
 
         batch = {'data': batch_data, 'labels': batch_labels}
 

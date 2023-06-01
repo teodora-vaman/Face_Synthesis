@@ -89,9 +89,9 @@ class Generator(nn.Module):
     
     def forward(self, input, labels):
         
-        ic(labels.shape)
+        # ic(labels.shape)
         embedded_labels = self.embedd(labels).unsqueeze(2).unsqueeze(3)
-        ic(embedded_labels.shape)
+        # ic(embedded_labels.shape)
         x_conv1 = x = self.conv1(input)  # 1 x 64 x 64
         x_conv2 = x = self.conv2(x) # 64 x 32 x 32
         x_conv3 = x = self.conv3(x) # 128 x 16 x 16
@@ -107,7 +107,7 @@ class Generator(nn.Module):
         # ic(x_conv5.shape)
 
         embedded_labels = embedded_labels.repeat(1,1,2,2)
-        ic(embedded_labels.shape)
+        # ic(embedded_labels.shape)
         x = torch.cat([x, embedded_labels], dim=1)
         x = self.joint(x) # 562 x 4 x 4
         x = self.resBlock(x)  # 512 x 2 x 2
