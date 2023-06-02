@@ -40,13 +40,13 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 16
-EPOCHS = 5
+EPOCHS = 10
 LEARING_RATE = 0.1  # Karapthy constant: 3e-4
 NOISE_DIM = 256  # Dimensiunea vectorului zgomot latent
-ATTR_DIM = 1
+ATTR_DIM = 4
 
 wandb.init(
-    mode="disabled",
+    # mode="disabled",
     project="Stage2_GAN",
 
     config={
@@ -89,8 +89,8 @@ decoder = Decoder(attribute_number=ATTR_DIM)
 encoder.cuda()
 decoder.cuda()
 
-decoder.load_state_dict(torch.load('Stage2_Sketch2Sketch\\retea_Decoder_15epoci_large.pt'))
-encoder.load_state_dict(torch.load('Stage2_Sketch2Sketch\\retea_Encoder_15epoci_large.pt'))
+decoder.load_state_dict(torch.load('Stage2_Sketch2Sketch\\retea_Decoder_10epoci_medium2.pt'))
+encoder.load_state_dict(torch.load('Stage2_Sketch2Sketch\\retea_Encoder_10epoci_medium2.pt'))
 
 for param in encoder.parameters():
     param.requires_grad = False
@@ -120,7 +120,7 @@ image, sketch, label = dataset[0]
 image2, sketch2, label2 = dataset[2]
 
 esantioane_proba = torch.stack([sketch, sketch2], dim=0)
-etichete_proba = torch.FloatTensor([[0], [1]])
+etichete_proba = torch.FloatTensor([[0,1,0,1], [1,0,0,1]])
 
 img_list = []
 img_list_sketch = []
@@ -135,7 +135,7 @@ loss_VGG = nn.L1Loss()
 
 scheduler_G = torch.optim.lr_scheduler.StepLR(optimizer = optimizator_G, step_size = 5, gamma=0.1)
 scheduler_D = torch.optim.lr_scheduler.StepLR(optimizer = optimizator_D, step_size = 5, gamma=0.1)
-torch.autograd.set_detect_anomaly(True)
+# torch.autograd.set_detect_anomaly(True)
 ### ------------------------------------------------------ ###
 #                        TRAINING                            #
 ### ------------------------------------------------------ ###
@@ -176,43 +176,37 @@ for epoca in range(EPOCHS):
         # fake_loss_D.backward()
 
         retea_D.zero_grad()
-        loss_D2 = (fake_loss_D + real_loss_D)
-        loss_D2.backward(retain_graph=True)
+        loss_D2 = (fake_loss_D + real_loss_D) * 0.5
+        # loss_D2.backward(retain_graph=True)
+        loss_D2.backward()
         optimizator_D.step()
 
         ## ----     ANTRENARE GENERATOR      ---- ##
-        # batch_data.unsqueeze(1)
-        # batch_data_rgb = batch_data.repeat(1, 3, 1, 1)
 
-        sketch_data_rgb = torch.empty(sketch_data.shape[0], 3, sketch_data.shape[1], sketch_data.shape[2])
-        expanded_sketch_data = sketch_data.unsqueeze(1).expand(-1, 3, -1, -1)
-        sketch_data_rgb[:, 0, :, :] = expanded_sketch_data.squeeze(dim=1)
-
-        imagini_generate_rgb = torch.empty(imagini_generate.shape[0], 3, imagini_generate.shape[1], imagini_generate.shape[2])
-        imagini_generate_expanded = imagini_generate.unsqueeze(1).expand(-1, 3, -1, -1)
-        imagini_generate_rgb[:, 0, :, :] = imagini_generate_expanded.squeeze(dim=1)
-
-        real_vgg_output = loss_layers.forward(sketch_data_rgb)
-        synth_vgg_output = loss_layers.forward(imagini_generate_rgb)
-
+        real_vgg_output = loss_layers.forward(sketch_data)
+        synth_vgg_output = loss_layers.forward(imagini_generate)
 
         retea_G.zero_grad()
         label_true = torch.LongTensor(np.ones(len(batch_data))).unsqueeze(1)
         label_true = label_true.to(torch.device(DEVICE))
         imagini_generate = imagini_generate.to(torch.device(DEVICE))
         output_g = retea_D(imagini_generate, encode_text)
+        G_bce_loss = loss_BCE(output_g, label_true.float())
         G_l1_loss = loss_L1(sketch_data, imagini_generate)
-        G_bce_loss = loss_BCE(output, label_true.float())
-        G_vgg_loss = loss_VGG(real_vgg_output, synth_vgg_output)
-        loss_G = G_l1_loss + G_bce_loss + G_vgg_loss
-        # loss_G = loss_L1(output_g, label_true.float()) + loss_BCE(output_g, label_true.float())
+        G_vgg_loss = loss_VGG(real_vgg_output, synth_vgg_output) * 10
+        loss_G = G_l1_loss + G_vgg_loss + G_bce_loss
         loss_G.backward()
+
+        # loss_G = loss_L1(output_g, label_true.float()) + loss_BCE(output_g, label_true.float())
+        # loss_G.backward()
         D_G_z2 = output_g.mean().item()
 
         optimizator_G.step()
         wandb.log({"loss_G_batch": loss_G, "G_vgg_batch": G_vgg_loss ,"loss_D_batch": loss_D2, "D(x)_batch":D_x, "D(G(z))-before_update_batch":D_G_z1, "D(G(z))_batch":D_G_z2})
 
     wandb.log({"loss_G": loss_G, "G_vgg": G_vgg_loss ,"loss_D": loss_D2, "D(x)":D_x, "D(G(z))-before_update":D_G_z1, "D(G(z))":D_G_z2})
+    print(f"loss_G: {loss_G}, G_vgg: {G_vgg_loss} ,loss_D: {loss_D2}, D(x):{D_x}, D(G(z))-before_update:{D_G_z1}, D(G(z)):{D_G_z2}")
+
 
     torch.save(retea_D.state_dict(), 'Stage2_sketch2Sketch\\retea_D_Stage2.pt')
     torch.save(retea_G.state_dict(), 'Stage2_sketch2Sketch\\retea_G_Stage2.pt')
@@ -244,8 +238,13 @@ for epoca in range(EPOCHS):
 
 
 # Afisarea ultimelor imagini de proba generate
-# plt.figure()
-# plt.title("Imagini generate")
-# plt.imshow(np.transpose(img_list_sketch[-1],(1,2,0)))
-# plt.show()
+plt.figure()
+plt.title("Imagini generate")
+plt.imshow(np.transpose(img_list[-1],(1,2,0)))
+plt.show()
+
+plt.figure()
+plt.title("Schite")
+plt.imshow(np.transpose(img_list_sketch[-1],(1,2,0)))
+plt.show()
 

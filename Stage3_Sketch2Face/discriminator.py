@@ -5,12 +5,18 @@ from icecream import ic
 
 
 class Discriminator(nn.Module):
-    def __init__(self, img_size, attribute_number=2):
+    def __init__(self, img_size, attribute_number=1):
         super(Discriminator, self).__init__()
 
         self.img_size = img_size
 
         self.embedd = nn.Embedding(attribute_number, img_size * img_size)
+
+        self.embedding_attribute =  nn.Sequential(
+            nn.Linear(in_features=attribute_number, out_features=img_size * img_size, bias=False), # batch_nr x nr_attribute => batch x 1 out: batch x 256
+            nn.BatchNorm1d(img_size * img_size),
+            nn.ReLU(True),
+        )
 
         # intrare imagine reala - nr_imag x 3 x 64 x 64
         self.conv1 = nn.Conv2d(in_channels=4, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False)
@@ -38,8 +44,8 @@ class Discriminator(nn.Module):
     
 
     def forward(self, input, labels):
-
-        embedded_labels = self.embedd(labels).view(labels.shape[0], 1, self.img_size, self.img_size)
+        embedded_labels = self.embedding_attribute(labels).view(labels.shape[0], 1, self.img_size, self.img_size)
+        # embedded_labels = self.embedd(labels).view(labels.shape[0], 1, self.img_size, self.img_size)
         x = torch.cat([input, embedded_labels], dim=1)
 
         x = self.conv1(x)
@@ -68,10 +74,12 @@ if __name__ == "__main__":
     x = torch.randn(4, 3, 64, 64)
     y = torch.LongTensor([0, 0, 1, 1])  
 
-    retea_D = Discriminator(64)
-    result = retea_D(x, y)
+    test_y = torch.FloatTensor([[0,0,0,0], [0,0,0,0], [1,0,0,0], [1,0,0,0]])
+
+    retea_D = Discriminator(64, attribute_number=4)
+    result = retea_D(x, test_y)
     D_x = result.mean().item()
     ic(result.shape)  # should be [4, 1]
-    ic(result)
-    ic(D_x)
+    # ic(result)
+    # ic(D_x)
 

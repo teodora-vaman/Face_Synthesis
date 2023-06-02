@@ -36,12 +36,14 @@ torch.manual_seed(seed)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 16
-EPOCHS = 10
+EPOCHS = 2
 LEARING_RATE = 0.01  # Karapthy constant: 3e-4
 NOISE_DIM = 200  # Dimensiunea vectorului zgomot latent
+ATTR_DIM = 4
+
 
 wandb.init(
-    # mode="disabled",
+    mode="disabled",
     project="Stage3_GAN",
 
     config={
@@ -50,7 +52,8 @@ wandb.init(
     "dataset": "CelebA_medium",
     "epochs": EPOCHS,
     "batch_size":BATCH_SIZE,
-    "working_phase": "perception loss"
+    "attribute dimension":ATTR_DIM,
+    "working_phase": "4 attr"
     }
 )
 
@@ -65,23 +68,24 @@ wandb.init(
 # DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA\img_align_celeba\img_align_celeba\\"
 # SKETCH_DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA\img_align_celeba\img_align_celeba_sketch\\"
 
-# EXCEL_PATH = "Database\celebA_small.xlsx"
-# DATASET_PATH = "Database\small_dataset\\"
-# SKETCH_DATASET_PATH = "Database\small_dataset_sketch\\"
-
 EXCEL_PATH = "Database\celebA_medium.xlsx"
 DATASET_PATH = "Database\medium_dataset\\"
 SKETCH_DATASET_PATH = "Database\medium_dataset_sketch\\"
 
-dataset = DatasetCelebA_Sketch(base_path=DATASET_PATH, excel_path=EXCEL_PATH, sketch_path=SKETCH_DATASET_PATH)
+# EXCEL_PATH = "Database\celebA_small.xlsx"
+# DATASET_PATH = "Database\small_dataset\\"
+# SKETCH_DATASET_PATH = "Database\small_dataset_sketch\\"
+
+
+dataset = DatasetCelebA_Sketch(base_path=DATASET_PATH, excel_path=EXCEL_PATH, sketch_path=SKETCH_DATASET_PATH, attribute_dim=ATTR_DIM)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 ### ------------------------------------------------------ ###
 #                 Models initialization                      #
 ### ------------------------------------------------------ ###
 
-retea_G = Generator(img_size=1)
-retea_D = Discriminator(64)
+retea_G = Generator(img_size=3, attribute_number=ATTR_DIM)
+retea_D = Discriminator(64, attribute_number=ATTR_DIM)
 retea_G.cuda()
 retea_D.cuda()
 
@@ -101,7 +105,8 @@ image, sketch, label = dataset[0]
 image2, sketch2, label2 = dataset[31]
 
 esantioane_proba = torch.stack([sketch, sketch2], dim=0)
-etichete_proba = torch.LongTensor([0,1])
+# etichete_proba = torch.LongTensor([0,1])
+etichete_proba = torch.FloatTensor([[0,1,0,1], [1,0,0,1]])
 
 loss_BCE = nn.BCELoss()
 loss_L1 = nn.L1Loss()
@@ -132,19 +137,19 @@ for epoca in range(EPOCHS):
         label_real = torch.LongTensor(np.ones(len(data))).unsqueeze(1)
         label_real = label_real.to(torch.device(DEVICE))
 
-        output = retea_D(data, batch_labels)
+        output = retea_D(data, batch_labels.float())
         real_loss_D = loss_D(output, label_real.float())
         D_x = output.mean().item()
         # real_loss_D.backward()
 
         ## generare imagini pt G
-        imagini_generate = retea_G(sketch_data, batch_labels)
+        imagini_generate = retea_G(sketch_data, batch_labels.float())
 
         label_false = torch.LongTensor(np.zeros(len(data))).unsqueeze(1)
         label_false = label_false.to(torch.device(DEVICE))
 
         # imaginile generate trec prin D
-        output = retea_D(imagini_generate.detach(), batch_labels)
+        output = retea_D(imagini_generate.detach(), batch_labels.float())
         fake_loss_D = loss_D(output, label_false.float())
         D_G_z1 = output.mean().item()
 
@@ -163,7 +168,7 @@ for epoca in range(EPOCHS):
         label_true = torch.LongTensor(np.ones(len(data))).unsqueeze(1)
         label_true = label_true.to(torch.device(DEVICE))
         imagini_generate = imagini_generate.to(torch.device(DEVICE))
-        output = retea_D(imagini_generate, batch_labels)
+        output = retea_D(imagini_generate, batch_labels.float())
         G_l1_loss = loss_L1(data, imagini_generate)
         G_bce_loss = loss_BCE(output, label_true.float())
         G_vgg_loss = loss_VGG(real_vgg_output, synth_vgg_output)
@@ -176,8 +181,12 @@ for epoca in range(EPOCHS):
         wandb.log({"loss_G_batch": loss_G, "G_vgg_batch": G_vgg_loss ,"loss_D_batch": loss_D3, "D(x)_batch":D_x, "D(G(z))-before_update_batch":D_G_z1, "D(G(z))_batch":D_G_z2})
 
     wandb.log({"loss_G": loss_G, "G_vgg": G_vgg_loss ,"loss_D": loss_D3, "D(x)":D_x, "D(G(z))-before_update":D_G_z1, "D(G(z))":D_G_z2})
-    torch.save(retea_D.state_dict(), 'Stage3_Sketch2Face\\retea_D_vgg.pt')
-    torch.save(retea_G.state_dict(), 'Stage3_Sketch2Face\\retea_G_vgg.pt')
+    torch.save(retea_D.state_dict(), 'Stage3_Sketch2Face\\retea_D_stage3.pt')
+    torch.save(retea_G.state_dict(), 'Stage3_Sketch2Face\\retea_G_stage3.pt')
+
+    if epoca % 5 == 0:
+        torch.save(retea_D.state_dict(), 'Stage3_Sketch2Face\\retea_D_stage3_epoca5.pt')
+        torch.save(retea_G.state_dict(), 'Stage3_Sketch2Face\\retea_G_stage3_epoca5.pt')
 
     with torch.no_grad():
         esantioane_proba = esantioane_proba.to(torch.device(DEVICE))

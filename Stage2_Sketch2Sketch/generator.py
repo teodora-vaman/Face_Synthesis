@@ -114,7 +114,7 @@ class Generator(nn.Module):
         self.embedding_dim = 256
         densenet121 = torch.hub.load('pytorch/vision:v0.10.0', 'densenet121', weights=DenseNet121_Weights.IMAGENET1K_V1)
 
-        self.conv_3x3 = convLayer(in_channels=1, out_channels=64, kernel=3, stride=2,padding=1) # nr_img x 64 x 32 x 32
+        self.conv_3x3 = convLayer(in_channels=3, out_channels=64, kernel=3, stride=2,padding=1) # nr_img x 64 x 32 x 32
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2) # nr_img x 64 x 16 x 16
 
         ##                   SCALE DOWN                   ##
@@ -173,7 +173,7 @@ class Generator(nn.Module):
         self.trans_block8 = DTransitionLayer(in_channels=32+32, out_channels=16)
 
         ## ------------    Last CONV Layer    ----------- ##
-        self.conv2 =  convLayer(in_channels=16, out_channels=1,stride=1)
+        self.conv2 =  convLayer(in_channels=16, out_channels=3,stride=1)
     
         # nr_imag x 1 x 64 x 64
         self.out = nn.Sigmoid()
@@ -237,12 +237,12 @@ class Generator(nn.Module):
 
 if __name__ == "__main__":
     image_size = [1,64,64] # input img: 64 x 64 for CelebA
-    x = torch.randn(4, 1, 64, 64)
+    x = torch.randn(4, 3, 64, 64)
     # y = torch.LongTensor([[0,0,0,0]]) 
     y = torch.randn(4, 256)
 
     retea_G = Generator()
     result = retea_G(x,y)
-    ic(result.shape) # should be 1 x 64 x 64
+    ic(result.shape) # should be 3 x 64 x 64
 
 
