@@ -1,3 +1,5 @@
 reteaG_10epoci_medium -> rezultate conditionate si destul de bune, culorile au revenit in imagine
 reteaG_20epoci_medium -> rezultate conditionate si bune
 reteaG_30epoci_medium > reteaG_20epoci_medium
+
+retea_vgg_10epoci : rezultate mult mai bune decat la celelalte încercări, un rezultat frumos la epoca 3, dupa au inceput să se strice
