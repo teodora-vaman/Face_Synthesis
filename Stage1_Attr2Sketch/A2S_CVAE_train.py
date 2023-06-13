@@ -27,14 +27,14 @@ seed = 999
 random.seed(seed)
 torch.manual_seed(seed)
 
-# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 ### ------------------------------------------------------ ###
 #                       Configuration                        #
 ### ------------------------------------------------------ ###
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 8 
+BATCH_SIZE = 16 
 EPOCHS = 10
 LEARING_RATE = 0.01  # Karapthy constant: 3e-4
 NOISE_DIM = 256  # Dimensiunea vectorului zgomot latent
@@ -46,12 +46,12 @@ wandb.init(
 
     config={
     "learning_rate": LEARING_RATE,
-    "architecture": "CVAE",   
-    "dataset": "CelebA_medium",
+    "architecture": "CVAE 128",   
+    "dataset": "CelebA_medium_crop",
     "epochs": EPOCHS,
     "batch_size":BATCH_SIZE,
     "attribute dimension":ATTR_DIM,
-    "working_phase": "3 channel output"
+    "working_phase": "starting new train"
     }
 )
 
@@ -68,10 +68,16 @@ wandb.init(
 # DATASET_PATH = "Database\small_dataset\\"
 # SKETCH_DATASET_PATH = "Database\small_dataset_sketch\\"
 
+# Male	Ypung	Eyeglasses	Bangs
 
-EXCEL_PATH = "Database\celebA_medium.xlsx"
-DATASET_PATH = "Database\medium_dataset\\"
-SKETCH_DATASET_PATH = "Database\medium_dataset_sketch\\"
+# EXCEL_PATH = "Database\celebA_medium_2.xlsx"
+# DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA_crop\CelebA_Crop_medium\\"
+# SKETCH_DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA_crop\CelebA_Sketch_Crop_medium\\"
+
+EXCEL_PATH = "E:\Lucru\Dizertatie\Cod\Face_Synthesis\Database\celebA_medium_3.xlsx"
+DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA_crop\CelebA_Crop_medium\\"
+SKETCH_DATASET_PATH = "E:\Lucru\Dizertatie\Baze de date\CelebA_crop\CelebA_Sketch_Crop_medium\\"
+
 
 dataset = DatasetCelebA_Sketch(base_path=DATASET_PATH, excel_path=EXCEL_PATH, sketch_path=SKETCH_DATASET_PATH, attribute_dim=ATTR_DIM)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -90,10 +96,10 @@ decoder.cuda()
 # encoder.load_state_dict(torch.load('E:\Lucru\Dizertatie\Cod\Face_Synthesis\Stage1_Attr2Sketch\\retea_Encoder.pt'))
 
 image, sketch, label = dataset[0]
-image2, sketch2, label2 = dataset[2]
+image2, sketch2, label2 = dataset[31]
 
 esantioane_proba = torch.stack([sketch, sketch2], dim=0)
-etichete_proba = torch.FloatTensor([[0,1,0,1], [1,0,0,1]])
+etichete_proba = torch.FloatTensor([[0,1,0,0], [1,1,0,0]])
 
 img_list_sketch = []
 img_list_noise = []
@@ -190,10 +196,10 @@ for epoca in range(EPOCHS):
 
 
 # Afisarea ultimelor imagini de proba generate
-plt.figure()
-plt.title("Imagini generate")
-plt.imshow(np.transpose(img_list_sketch[-1],(1,2,0)))
-plt.show()
+# plt.figure()
+# plt.title("Imagini generate")
+# plt.imshow(np.transpose(img_list_sketch[-1],(1,2,0)))
+# plt.show()
 
 
 

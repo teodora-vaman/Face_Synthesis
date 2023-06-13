@@ -20,6 +20,7 @@ class DatasetCelebA(Dataset):
         self.base_path = base_path
         self.data = df["image_id"]
         self.labels = df["Male"]
+        self.hair = df['BlackHair']
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.transf = transforms.Compose([
@@ -64,13 +65,14 @@ class DatasetCelebA_Sketch(Dataset):
 
         self.transf = transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Resize([128,128]),
+        transforms.Resize([64,64]),
         transforms.ToTensor()])
 
         self.transf_sketch = transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Resize([128,128]),
-        transforms.ToTensor()])
+        transforms.Resize([64,64]),
+        transforms.ToTensor()
+        ])
 
         # transforms.Grayscale(1)
 
@@ -98,26 +100,8 @@ class DatasetCelebA_Sketch(Dataset):
 
         return batch_data, batch_sketch_data, batch_labels
 
+
+
 ## test
-
-if __name__ == "__main__":
-    EXCEL_PATH = "Database\celebA_medium.xlsx"
-    DATASET_PATH = "Database\medium_dataset\\"
-    SKETCH_DATASET_PATH = "Database\medium_dataset_sketch\\"
-    ATTR_DIM = 4
-    
-    df = pd.read_excel(EXCEL_PATH)
-    base_path = DATASET_PATH
-    sketch_path = SKETCH_DATASET_PATH
-    data = df["image_id"]
-    labels = df.iloc[:, 1:(ATTR_DIM + 1)]
-    labels_male = df["Male"]
-
-    idx = 2
-    print(labels_male[idx])
-    print(labels.iloc[idx].values)
-    print(labels.iloc[idx + 2].values)
-
-    
-
-
+# dataset_train = DatasetFashionMNIST(r'train-images-idx3-ubyte')
+# print(dataset_train.__len__())

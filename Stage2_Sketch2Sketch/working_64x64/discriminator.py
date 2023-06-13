@@ -22,13 +22,10 @@ class Discriminator(nn.Module):
             nn.ReLU(True)
         )
 
-        # intrare imagine reala - nr_imag x 1 x 128 x 128
-        self.conv0 = nn.Conv2d(in_channels=3+1, out_channels=32, kernel_size=4, stride=2, padding=1, bias=False)
-        self.lrelu0= nn.LeakyReLU(0.2, inplace=True)
 
-        # intrare imagine reala - nr_imag x 32 x 64 x 64
-        self.conv1 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+
+        # intrare imagine reala - nr_imag x 1 x 64 x 64
+        self.conv1 = nn.Conv2d(in_channels=3+1, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False)
         self.lrelu1 = nn.LeakyReLU(0.2, inplace=True)
 
         # nr_imag x 16 x 32 x 32
@@ -66,11 +63,7 @@ class Discriminator(nn.Module):
 
         x = torch.cat([input, attribute_encoding], dim=1)
 
-        x = self.conv0(x)
-        x = self.lrelu0(x)
-
         x = self.conv1(x)
-        x = self.bn1(x)
         x = self.lrelu1(x)
 
         x = self.conv2(x)
@@ -97,11 +90,11 @@ class Discriminator(nn.Module):
 
 if __name__ == "__main__":
     image_size = [1,64,64] # input img: 64 x 64 for CelebA
-    x = torch.randn(4, 3, 128, 128)
+    x = torch.randn(4, 3, 64, 64)
     y = torch.randn(4, 256)
 
 
-    retea_D = Discriminator(128)
+    retea_D = Discriminator(64)
     result = retea_D(x, y)
     # D_x = result.mean().item()
     ic(result.shape)  # should be [4, 1]

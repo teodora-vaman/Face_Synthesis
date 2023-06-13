@@ -113,9 +113,8 @@ class Generator(nn.Module):
 
         self.embedding_dim = 256
         densenet121 = torch.hub.load('pytorch/vision:v0.10.0', 'densenet121', weights=DenseNet121_Weights.IMAGENET1K_V1)
-        
-        self.conv_3x3_init = convLayer(in_channels=3, out_channels=32, kernel=3, stride=2,padding=1) # nr_img x 32 x 64 x 64
-        self.conv_3x3 = convLayer(in_channels=32, out_channels=64, kernel=3, stride=2,padding=1) # nr_img x 64 x 32 x 32
+
+        self.conv_3x3 = convLayer(in_channels=3, out_channels=64, kernel=3, stride=2,padding=1) # nr_img x 64 x 32 x 32
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2) # nr_img x 64 x 16 x 16
 
         ##                   SCALE DOWN                   ##
@@ -173,13 +172,8 @@ class Generator(nn.Module):
         self.dense_block8 = BottleneckLayer(in_channels=32, growth_rate=32)
         self.trans_block8 = DTransitionLayer(in_channels=32+32, out_channels=16)
 
-        ## ------------    Last DECONV Layer    ----------- ##
-        ## ---             16 -> 8 channels             --- ##
-        ## -------      64 x 64 -> 128 x 128 size      ------ ##
-        self.deconv =  deconvLayer(in_channels=16, out_channels=8)
-
         ## ------------    Last CONV Layer    ----------- ##
-        self.conv2 =  convLayer(in_channels=8, out_channels=3,stride=1)
+        self.conv2 =  convLayer(in_channels=16, out_channels=3,stride=1)
     
         # nr_imag x 1 x 64 x 64
         self.out = nn.Sigmoid()
@@ -195,8 +189,7 @@ class Generator(nn.Module):
         # attribute_encoding : 256 x 1 x 1
 
         ##                   SCALE DOWN                   ##
-        x_0 = self.conv_3x3_init(input)
-        x0 = self.conv_3x3(x_0)
+        x0 = self.conv_3x3(input)
         x0 = self.pool1(x0)
 
         x1 = self.dense_block1(x0)
@@ -235,23 +228,21 @@ class Generator(nn.Module):
 
         x8 = self.dense_block8(x7)
         x8 = self.trans_block8(x8)  # nr_img x 16 x 64 x 64
-        
-        x9 = self.deconv(x8)
-        x_out = self.conv2(x9)
-       
-        out = self.out(x_out)
+
+        x9 = self.conv2(x8)
+        out = self.out(x9)
 
         return out
 
 
 if __name__ == "__main__":
     image_size = [1,64,64] # input img: 64 x 64 for CelebA
-    x = torch.randn(4, 3, 128, 128)
+    x = torch.randn(4, 3, 64, 64)
     # y = torch.LongTensor([[0,0,0,0]]) 
     y = torch.randn(4, 256)
 
     retea_G = Generator()
     result = retea_G(x,y)
-    ic(result.shape) # should be 3 x 128 x 128
+    ic(result.shape) # should be 3 x 64 x 64
 
 

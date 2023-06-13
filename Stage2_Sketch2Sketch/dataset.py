@@ -65,12 +65,12 @@ class DatasetCelebA_Sketch(Dataset):
 
         self.transf = transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Resize([64,64]),
+        transforms.Resize([128,128]),
         transforms.ToTensor()])
 
         self.transf_sketch = transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Resize([64,64]),
+        transforms.Resize([128,128]),
         transforms.ToTensor()
         ])
 
