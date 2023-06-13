@@ -8,3 +8,5 @@ checkpoints/
 retea_D.pt
 retea_G.pt
 VGG.py
+*.pt
+**/*.pt
